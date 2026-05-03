@@ -12,7 +12,7 @@ import type {
 // ── Gemini setup ──────────────────────────────────────────────
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
-const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
+const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' })
 
 // ── Prompt builders ───────────────────────────────────────────
 
@@ -137,7 +137,7 @@ function buildConfirmationReply(data: StructuredFarmData, detectedLanguage: stri
     },
   }
 
-  const t = translations[detectedLanguage] || translations.ja
+  const t = translations[detectedLanguage as keyof typeof translations] || translations.ja
 
   return [
     t.title,
@@ -156,7 +156,7 @@ function buildNextTaskRequestReply(detectedLanguage: string = 'ja'): string {
     th: 'บันทึกสถานะการทำงานเรียบร้อยแล้ว\n\nงานที่คุณวางแผนจะทำเมื่อวันพรุ่งนี้คืออะไร?\nหากคุณระบุรายละเอียดเฉพาะเจาะจง ฉันสามารถลงทะเบียนงานโดยอัตโนมัติได้\n(ตัวอย่าง: "การฝึกอบรมมะเขือเทศ" หรือ "การก่อปุ๋ยและการรดน้ำ")',
   }
 
-  return replies[detectedLanguage] || replies.ja
+  return replies[detectedLanguage as keyof typeof replies] || replies.ja
 }
 
 // ── Route handler ─────────────────────────────────────────────
