@@ -1,0 +1,21 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    /* Prevent unwanted zoom on input focus on iOS */
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-green-50 text-gray-900;
+  }
+}
+
+@layer utilities {
+  /* iOS home indicator safe area — applied to the bottom of the input bar */
+  .pb-safe {
+    padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+  }
+}

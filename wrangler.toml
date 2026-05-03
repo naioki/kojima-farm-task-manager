@@ -1,0 +1,6 @@
+name = "agricultural-dx-task-management"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+# Environment variables are set in Cloudflare Pages dashboard, not here.
+# See .env.local.example for the full list of required variables.

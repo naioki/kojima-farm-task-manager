@@ -1,9 +1,15 @@
 # Dependencies
 node_modules/
 
-# Build output
+# Next.js build output
+.next/
+out/
 dist/
 build/
+
+# Cloudflare Pages build output
+.vercel/
+.wrangler/
 
 # Environment
 .env
