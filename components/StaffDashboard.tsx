@@ -1,4 +1,5 @@
 import { FarmMapDashboard, type FarmZone, type FarmTask } from '@/components/FarmMapDashboard'
+import { NFCScanButton } from '@/components/NFCScanButton'
 import { clearRole } from '@/app/actions'
 
 // ── Date helpers ───────────────────────────────────────────────
@@ -128,6 +129,9 @@ export function StaffDashboard() {
         tasks={buildStaffTasks(due)}
         tomorrowLabel={tomorrowLabel()}
       />
+
+      {/* NFC scan button — bottom-right, only visible on Android Chrome */}
+      <NFCScanButton />
 
       {/* Logout button — floats over the FarmMapDashboard header */}
       <form action={clearRole} className="fixed right-4 top-3.5 z-50">

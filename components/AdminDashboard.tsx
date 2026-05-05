@@ -1,8 +1,12 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { CheckCircle2, Clock, Filter, LogOut, MapPin } from 'lucide-react'
+import { CheckCircle2, Clock, Filter, LogOut, MapPin, Radio, BarChart2, List } from 'lucide-react'
 import { clearRole } from '@/app/actions'
+import { useRealtimeTasks } from '@/lib/hooks/useRealtimeTasks'
+import { AnalyticsDashboard } from '@/components/AnalyticsDashboard'
+import { PushNotificationToggle } from '@/components/PushNotificationToggle'
+import type { Task } from '@/lib/types'
 
 // ── Types ──────────────────────────────────────────────────────
 
@@ -12,11 +16,11 @@ interface AdminTask {
   house_name: string
   task_description: string
   time_slot: string
-  due_date: string             // YYYY-MM-DD — maps to tasks.due_date
+  due_date: string
   status: 'pending' | 'completed'
 }
 
-// ── Zone colour config (matches StaffDashboard / FarmMapDashboard) ──
+// ── Zone colour config ──────────────────────────────────────────
 
 const zoneConfig: Record<string, { badge: string; dot: string; label: string }> = {
   'house-a-uuid': { badge: 'bg-green-100 text-green-800',  dot: 'bg-green-500',  label: 'ハウスA' },
@@ -25,9 +29,7 @@ const zoneConfig: Record<string, { badge: string; dot: string; label: string }> 
   'house-c-uuid': { badge: 'bg-rose-100  text-rose-800',   dot: 'bg-rose-500',   label: 'ハウスC' },
 }
 
-// ── Mock tasks ─────────────────────────────────────────────────
-// Covers yesterday / today / tomorrow with a mix of pending + completed.
-// TODO: Replace with: supabase.from('tasks').select('*').order('due_date', { ascending: false })
+// ── Mock tasks (fallback when Supabase is not yet connected) ────
 
 function buildAdminTasks(): AdminTask[] {
   const jst = (offset: number) => {
@@ -40,25 +42,68 @@ function buildAdminTasks(): AdminTask[] {
   const tomorrow  = jst(1)
 
   return [
-    // ── Tomorrow ──────────────────────────────────
-    { id: 't-01', house_id: 'house-a-uuid', house_name: 'ハウスA', task_description: 'トマトの誘引・整枝作業',    time_slot: '09:00', due_date: tomorrow,  status: 'pending'   },
-    { id: 't-02', house_id: 'house-c-uuid', house_name: 'ハウスC', task_description: 'イチゴの収穫・選別',        time_slot: '09:30', due_date: tomorrow,  status: 'pending'   },
-    { id: 't-03', house_id: 'house-b-uuid', house_name: 'ハウスB', task_description: 'きゅうりの収穫',            time_slot: '10:30', due_date: tomorrow,  status: 'pending'   },
-    { id: 't-04', house_id: 'field-a-uuid', house_name: '露地畑A', task_description: '雑草除去・土壌管理',        time_slot: '14:00', due_date: tomorrow,  status: 'pending'   },
-    { id: 't-05', house_id: 'house-a-uuid', house_name: 'ハウスA', task_description: '水やり・液肥散布',          time_slot: '16:00', due_date: tomorrow,  status: 'pending'   },
-    // ── Today ─────────────────────────────────────
-    { id: 't-06', house_id: 'house-a-uuid', house_name: 'ハウスA', task_description: '換気扇フィルター清掃',      time_slot: '07:00', due_date: today,     status: 'pending'   },
-    { id: 't-07', house_id: 'house-b-uuid', house_name: 'ハウスB', task_description: '施肥（窒素系）',            time_slot: '11:00', due_date: today,     status: 'completed' },
-    { id: 't-08', house_id: 'house-c-uuid', house_name: 'ハウスC', task_description: '病害虫定期チェック',        time_slot: '14:00', due_date: today,     status: 'completed' },
-    { id: 't-09', house_id: 'field-a-uuid', house_name: '露地畑A', task_description: 'マルチシート張り替え',      time_slot: '15:00', due_date: today,     status: 'pending'   },
-    // ── Yesterday ─────────────────────────────────
-    { id: 't-10', house_id: 'house-b-uuid', house_name: 'ハウスB', task_description: 'ネット・支柱の修繕',        time_slot: '09:00', due_date: yesterday, status: 'completed' },
-    { id: 't-11', house_id: 'field-a-uuid', house_name: '露地畑A', task_description: '収穫物の集荷・出荷準備',    time_slot: '08:30', due_date: yesterday, status: 'completed' },
-    { id: 't-12', house_id: 'house-a-uuid', house_name: 'ハウスA', task_description: '温度・湿度センサー点検',    time_slot: '13:00', due_date: yesterday, status: 'pending'   },
+    { id: 't-01', house_id: 'house-a-uuid', house_name: 'ハウスA', task_description: 'トマトの誘引・整枝作業',  time_slot: '09:00', due_date: tomorrow,  status: 'pending'   },
+    { id: 't-02', house_id: 'house-c-uuid', house_name: 'ハウスC', task_description: 'イチゴの収穫・選別',      time_slot: '09:30', due_date: tomorrow,  status: 'pending'   },
+    { id: 't-03', house_id: 'house-b-uuid', house_name: 'ハウスB', task_description: 'きゅうりの収穫',          time_slot: '10:30', due_date: tomorrow,  status: 'pending'   },
+    { id: 't-04', house_id: 'field-a-uuid', house_name: '露地畑A', task_description: '雑草除去・土壌管理',      time_slot: '14:00', due_date: tomorrow,  status: 'pending'   },
+    { id: 't-05', house_id: 'house-a-uuid', house_name: 'ハウスA', task_description: '水やり・液肥散布',        time_slot: '16:00', due_date: tomorrow,  status: 'pending'   },
+    { id: 't-06', house_id: 'house-a-uuid', house_name: 'ハウスA', task_description: '換気扇フィルター清掃',    time_slot: '07:00', due_date: today,     status: 'pending'   },
+    { id: 't-07', house_id: 'house-b-uuid', house_name: 'ハウスB', task_description: '施肥（窒素系）',          time_slot: '11:00', due_date: today,     status: 'completed' },
+    { id: 't-08', house_id: 'house-c-uuid', house_name: 'ハウスC', task_description: '病害虫定期チェック',      time_slot: '14:00', due_date: today,     status: 'completed' },
+    { id: 't-09', house_id: 'field-a-uuid', house_name: '露地畑A', task_description: 'マルチシート張り替え',    time_slot: '15:00', due_date: today,     status: 'pending'   },
+    { id: 't-10', house_id: 'house-b-uuid', house_name: 'ハウスB', task_description: 'ネット・支柱の修繕',      time_slot: '09:00', due_date: yesterday, status: 'completed' },
+    { id: 't-11', house_id: 'field-a-uuid', house_name: '露地畑A', task_description: '収穫物の集荷・出荷準備',  time_slot: '08:30', due_date: yesterday, status: 'completed' },
+    { id: 't-12', house_id: 'house-a-uuid', house_name: 'ハウスA', task_description: '温度・湿度センサー点検',  time_slot: '13:00', due_date: yesterday, status: 'pending'   },
   ]
 }
 
-// ── Sub-components ─────────────────────────────────────────────
+/** Converts a raw Supabase Task into the AdminTask display shape. */
+function normalizeTask(t: Task): AdminTask {
+  return {
+    id: t.id,
+    house_id: t.house_id,
+    house_name: zoneConfig[t.house_id]?.label ?? t.house_id,
+    task_description: t.task_description,
+    time_slot: t.created_at
+      ? new Date(t.created_at).toLocaleTimeString('ja-JP', {
+          timeZone: 'Asia/Tokyo',
+          hour: '2-digit',
+          minute: '2-digit',
+        })
+      : '',
+    due_date: t.due_date ?? '',
+    status: t.status,
+  }
+}
+
+// ── Live status badge ───────────────────────────────────────────
+
+function LiveBadge({ status }: { status: 'connecting' | 'connected' | 'disconnected' }) {
+  if (status === 'connecting') {
+    return (
+      <span className="flex items-center gap-1 text-[10px] text-green-300">
+        <Radio className="h-2.5 w-2.5 animate-pulse" />
+        接続中…
+      </span>
+    )
+  }
+  if (status === 'connected') {
+    return (
+      <span className="flex items-center gap-1 text-[10px] text-green-300">
+        <span className="h-1.5 w-1.5 rounded-full bg-green-300" />
+        ライブ
+      </span>
+    )
+  }
+  return (
+    <span className="flex items-center gap-1 text-[10px] text-green-400/50">
+      <span className="h-1.5 w-1.5 rounded-full bg-green-400/50" />
+      オフライン
+    </span>
+  )
+}
+
+// ── TaskRow ─────────────────────────────────────────────────────
 
 function TaskRow({ task }: { task: AdminTask }) {
   const zone      = zoneConfig[task.house_id]
@@ -66,7 +111,6 @@ function TaskRow({ task }: { task: AdminTask }) {
 
   return (
     <div className="flex items-start gap-3 rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-sm">
-      {/* Status icon */}
       <div className="mt-0.5 flex-shrink-0">
         {isPending
           ? <Clock        className="h-4 w-4 text-amber-500" />
@@ -74,7 +118,6 @@ function TaskRow({ task }: { task: AdminTask }) {
         }
       </div>
 
-      {/* Main info */}
       <div className="min-w-0 flex-1">
         <p className={`text-sm font-medium leading-snug ${
           isPending ? 'text-gray-900' : 'text-gray-400 line-through'
@@ -87,12 +130,11 @@ function TaskRow({ task }: { task: AdminTask }) {
           }`}>
             {zone?.label ?? task.house_name}
           </span>
-          <span className="text-[11px] text-gray-400">{task.time_slot}</span>
-          <span className="text-[11px] text-gray-400">{task.due_date}</span>
+          {task.time_slot && <span className="text-[11px] text-gray-400">{task.time_slot}</span>}
+          {task.due_date  && <span className="text-[11px] text-gray-400">{task.due_date}</span>}
         </div>
       </div>
 
-      {/* Status badge */}
       <span className={`flex-shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
         isPending ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'
       }`}>
@@ -105,8 +147,16 @@ function TaskRow({ task }: { task: AdminTask }) {
 // ── AdminDashboard ─────────────────────────────────────────────
 
 export function AdminDashboard() {
-  const allTasks = useMemo(() => buildAdminTasks(), [])
+  const mockTasks = useMemo(() => buildAdminTasks(), [])
 
+  // Real-time Supabase subscription. Falls back to mock data when DB is empty.
+  const { tasks: liveTasks, status: realtimeStatus } = useRealtimeTasks()
+
+  const allTasks: AdminTask[] = liveTasks.length > 0
+    ? liveTasks.map(normalizeTask)
+    : mockTasks
+
+  const [activeTab,    setActiveTab]    = useState<'list' | 'analytics'>('list')
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'completed'>('all')
   const [houseFilter,  setHouseFilter]  = useState<string>('all')
 
@@ -118,6 +168,7 @@ export function AdminDashboard() {
 
   const pendingCount   = allTasks.filter(t => t.status === 'pending').length
   const completedCount = allTasks.filter(t => t.status === 'completed').length
+  const isLiveData     = liveTasks.length > 0
 
   return (
     <div className="flex h-dvh flex-col bg-gray-50">
@@ -127,21 +178,66 @@ export function AdminDashboard() {
         <div className="mx-auto flex max-w-3xl items-center justify-between">
           <div>
             <h1 className="text-lg font-bold leading-tight text-white">📋 タスク指令センター</h1>
-            <p className="mt-0.5 text-xs text-green-200">管理者: Naoki</p>
+            <div className="mt-0.5 flex items-center gap-2">
+              <p className="text-xs text-green-200">管理者: Naoki</p>
+              <LiveBadge status={realtimeStatus} />
+              {!isLiveData && (
+                <span className="text-[10px] text-green-300/70">（デモデータ）</span>
+              )}
+            </div>
           </div>
-          <form action={clearRole}>
-            <button
-              type="submit"
-              className="flex items-center gap-1.5 rounded-xl bg-white/20 px-3 py-2 text-xs font-medium text-white hover:bg-white/30"
-            >
-              <LogOut className="h-3.5 w-3.5" />
-              ログアウト
-            </button>
-          </form>
+          <div className="flex items-center gap-2">
+            <PushNotificationToggle />
+            <form action={clearRole}>
+              <button
+                type="submit"
+                className="flex items-center gap-1.5 rounded-xl bg-white/20 px-3 py-2 text-xs font-medium text-white hover:bg-white/30"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+                ログアウト
+              </button>
+            </form>
+          </div>
         </div>
       </header>
 
       <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col overflow-hidden">
+
+        {/* ── Tab bar ──────────────────────────────────── */}
+        <div className="flex-shrink-0 flex border-b border-gray-200 bg-white">
+          <button
+            onClick={() => setActiveTab('list')}
+            className={`flex flex-1 items-center justify-center gap-1.5 py-2.5 text-sm font-medium transition-colors ${
+              activeTab === 'list'
+                ? 'border-b-2 border-green-600 text-green-700'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <List className="h-4 w-4" />
+            タスク一覧
+          </button>
+          <button
+            onClick={() => setActiveTab('analytics')}
+            className={`flex flex-1 items-center justify-center gap-1.5 py-2.5 text-sm font-medium transition-colors ${
+              activeTab === 'analytics'
+                ? 'border-b-2 border-green-600 text-green-700'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <BarChart2 className="h-4 w-4" />
+            分析
+          </button>
+        </div>
+
+        {/* ── Analytics tab ────────────────────────────── */}
+        {activeTab === 'analytics' && (
+          <div className="flex-1 overflow-y-auto">
+            <AnalyticsDashboard tasks={allTasks} />
+          </div>
+        )}
+
+        {/* ── List tab ─────────────────────────────────── */}
+        {activeTab === 'list' && <>
 
         {/* ── Stats row ────────────────────────────────── */}
         <div className="flex-shrink-0 grid grid-cols-3 gap-3 p-4">
@@ -207,6 +303,7 @@ export function AdminDashboard() {
             )}
           </div>
         </div>
+        </>}
       </div>
     </div>
   )
